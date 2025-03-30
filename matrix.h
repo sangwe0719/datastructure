@@ -7,6 +7,7 @@ class Matrix {
 protected:
     double** data;
     int rows, cols;
+    Matrix(int rows, int cols, bool sparse);
 
 public:
 
@@ -25,6 +26,11 @@ public:
     Matrix* subtractMatrix(const Matrix& matrix1, const Matrix& matrix2);
     Matrix* multiplyElement(const Matrix& matrix1, const Matrix& matrix2);
     Matrix* divideElement(const Matrix& A, const Matrix& B) const;
+
+    Matrix* addTransposed(const Matrix& A, const Matrix& B);
+    Matrix* subtractTransposed(const Matrix& A, const Matrix& B);
+    Matrix* multiplyTransposed(const Matrix& A, const Matrix& B);
+    Matrix* divideTransposed(const Matrix& A, const Matrix& B);
 
     // Getter 함수
     int getRows() const { return rows; }

@@ -15,25 +15,28 @@ private:
     int capacity;
 
 public:
-    CSparseMatrix();                              // 기본 생성자
-    CSparseMatrix(int size);                      // 크기 기반 생성자
-    CSparseMatrix(const CSparseMatrix& other);    // 복사 생성자
-    ~CSparseMatrix();                             // 소멸자
+    CSparseMatrix();
+    CSparseMatrix(int size);
+    CSparseMatrix(const CSparseMatrix& other);
+    ~CSparseMatrix();
 
     SparseElement* getElements() const;
     int getCapacity() const;
     void printSparseMatrix() const;
 
-    // 일반 행렬 → 희소 행렬 변환
+    // 일반 행렬 -> 희소 행렬 변환
     static CSparseMatrix structArraySparseMatrixCOO(const Matrix& matrix);
-    // 희소 행렬 직접 생성 (70% 확률로 0 포함)
     static CSparseMatrix generateRandomSparseMatrix(int rows, int cols);
 
-
     // 희소 행렬 연산
-    static CSparseMatrix transposeMatrix(const CSparseMatrix& matrix);
+    static CSparseMatrix transposeMatrix(const CSparseMatrix& A);
     static CSparseMatrix sumMatrix(const CSparseMatrix& A, const CSparseMatrix& B);
+    static CSparseMatrix subtractMatrix(const CSparseMatrix& A, const CSparseMatrix& B);
+    static CSparseMatrix divideMatrix(const CSparseMatrix& A, const CSparseMatrix& B);
     static CSparseMatrix multMatrix(const CSparseMatrix& A, const CSparseMatrix& B);
 };
+
+// 정렬용 비교 함수 선언
+bool compareSparseElement(const SparseElement& a, const SparseElement& b);
 
 #endif // C_SPARSE_MATRIX_H

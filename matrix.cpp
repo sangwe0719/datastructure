@@ -121,7 +121,7 @@ Matrix* Matrix::subtractMatrix(const Matrix& matrix1, const Matrix& matrix2) {
     return result;
 }
 
-// 행렬의 일반적인 곱셈
+// 행렬의 곱셈
 Matrix* Matrix::multMatrix(const Matrix& m1, const Matrix& m2) {
     if (m1.cols != m2.rows) {
         cout << "Matrix multiplication not possible" << endl;
@@ -166,5 +166,45 @@ Matrix* Matrix::divideElement(const Matrix& A, const Matrix& B) const {
         }
     }
 
+    return result;
+}
+
+// 전치행렬 덧셈
+Matrix* Matrix::addTransposed(const Matrix& A, const Matrix& B) {
+    Matrix* At = transposeMatrix(A);
+    Matrix* Bt = transposeMatrix(B);
+    Matrix* result = addMatrix(*At, *Bt);
+    delete At;
+    delete Bt;
+    return result;
+}
+
+// 전치행렬 뺄셈
+Matrix* Matrix::subtractTransposed(const Matrix& A, const Matrix& B) {
+    Matrix* At = transposeMatrix(A);
+    Matrix* Bt = transposeMatrix(B);
+    Matrix* result = subtractMatrix(*At, *Bt);
+    delete At;
+    delete Bt;
+    return result;
+}
+
+// 전치행렬 곱셈
+Matrix* Matrix::multiplyTransposed(const Matrix& A, const Matrix& B) {
+    Matrix* Bt = transposeMatrix(B);
+    Matrix* At = transposeMatrix(A);
+    Matrix* product = multMatrix(*Bt, *At);
+    delete At;
+    delete Bt;
+    return product;
+}
+
+// 전치행렬 나눗셈
+Matrix* Matrix::divideTransposed(const Matrix& A, const Matrix& B) {
+    Matrix* At = transposeMatrix(A);
+    Matrix* Bt = transposeMatrix(B);
+    Matrix* result = divideElement(*At, *Bt);
+    delete At;
+    delete Bt;
     return result;
 }

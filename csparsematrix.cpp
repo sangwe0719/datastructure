@@ -2,6 +2,10 @@
 #include "matrix.h"
 #include <iostream>
 #include <cstdlib>
+#include <cmath> 
+#include <algorithm>
+#include <map>
+#include <vector>
 
 //기본생성자
 CSparseMatrix::CSparseMatrix() : element(nullptr), capacity(0) {}
@@ -40,7 +44,6 @@ void CSparseMatrix::printSparseMatrix() const {
     }
 }
 
-
 // 일반행렬 -> 희소행렬로 변환
 CSparseMatrix CSparseMatrix::structArraySparseMatrixCOO(const Matrix& matrix) {
     int row = matrix.getRows();  
@@ -70,7 +73,8 @@ CSparseMatrix CSparseMatrix::structArraySparseMatrixCOO(const Matrix& matrix) {
     return sparse;
 }
 
-// 희소행렬 직접 생성: 70% 확률로 0을 포함한 행렬을 생성 후 변환
+// 희소행렬 직접 생성: 70% 확률로 0을 포함한 행렬을 생성 후 변환 
+// 데이터크기 커지면 확률조정 필요. 
 CSparseMatrix CSparseMatrix::generateRandomSparseMatrix(int rows, int cols) {
     Matrix m(rows, cols);
     for (int i = 0; i < rows; ++i) {
@@ -83,25 +87,24 @@ CSparseMatrix CSparseMatrix::generateRandomSparseMatrix(int rows, int cols) {
 }
 
 //입력된 희소행렬(A)을 전치된 희소행렬 로 반환함
-CSparseMatrix CSparseMatrix::transposeMatrix(const CSparseMatrix& A) {// A는 원본 희소행렬, CSparsMatrix는 전치된 희소행렬
-    int rows = A.element[0].row; // 행 개수 추출
-    int cols = A.element[0].col; // 열 개수 추출
-    int count = A.element[0].val; // 비제로 원소 개수 추출
+CSparseMatrix CSparseMatrix::transposeMatrix(const CSparseMatrix& A) {
+    int rows = A.element[0].row;
+    int cols = A.element[0].col;
+    int count = A.element[0].val;
 
-    CSparseMatrix transposed(count + 1); // element[0]에 행렬데이터를 저장
-    transposed.element[0] = {cols, rows, count}; //{ 행 수, 열 수, 비제로 원소수 }
+    CSparseMatrix transposed(count + 1);
+    transposed.element[0] = {cols, rows, count};
 
-    int* colCount = new int[cols]{}; //각 열에 몇개의 비제로 원소가 있는지 저장   
-    int* startPos = new int[cols]{}; // 전치 행렬에서 이 열이 어디서 시작 할 지를 계산함
+    int* colCount = new int[cols]{};
+    int* startPos = new int[cols]{};
 
-    for (int i = 1; i <= count; ++i) // 전치 후에는 행과 열의 번호가 바뀌므로, A의 열 번호에 해당하는 colCount[]값을 증가
+    for (int i = 1; i <= count; ++i)
         ++colCount[A.element[i].col];
 
     startPos[0] = 1;
     for (int i = 1; i < cols; ++i)
-        startPos[i] = startPos[i - 1] + colCount[i - 1]; // 나머지 열의 시작 위치를 계산
+        startPos[i] = startPos[i - 1] + colCount[i - 1];
 
-    //전치행렬에 값 삽입
     for (int i = 1; i <= count; ++i) {
         int col = A.element[i].col;
         int pos = startPos[col]++;
@@ -113,72 +116,162 @@ CSparseMatrix CSparseMatrix::transposeMatrix(const CSparseMatrix& A) {// A는 �
     return transposed;
 }
 
-// 두 희소 행렬을 더하는 함수
+bool compareSparseElement(const SparseElement& a, const SparseElement& b) {
+    return (a.row < b.row) || (a.row == b.row && a.col < b.col);
+}
+
+// 희소행렬의 덧셈
 CSparseMatrix CSparseMatrix::sumMatrix(const CSparseMatrix& A, const CSparseMatrix& B) {
-    CSparseMatrix result(A.capacity + B.capacity);
-    result.element[0] = {A.element[0].row, A.element[0].col, 0};
+    std::map<std::pair<int, int>, int> valueMap;
 
-    int i = 1, j = 1, idx = 1;
-    while (i <= A.element[0].val && j <= B.element[0].val) { // A 와 B의 원소 비교후 더하기
-        int rA = A.element[i].row, cA = A.element[i].col;
-        int rB = B.element[j].row, cB = B.element[j].col;
+    for (int i = 1; i <= A.element[0].val; ++i) {
+        auto key = std::make_pair(A.element[i].row, A.element[i].col);
+        valueMap[key] += A.element[i].val;
+    }
+    for (int i = 1; i <= B.element[0].val; ++i) {
+        auto key = std::make_pair(B.element[i].row, B.element[i].col);
+        valueMap[key] += B.element[i].val;
+    }
 
-        if (rA == rB && cA == cB) {
-            int sum = A.element[i].val + B.element[j].val;
-            if (sum != 0) result.element[idx++] = {rA, cA, sum};
-            ++i; ++j;
-        } else if (rA < rB || (rA == rB && cA < cB)) {
-            result.element[idx++] = A.element[i++];
-        } else {
-            result.element[idx++] = B.element[j++];
+    std::vector<SparseElement> sortedElements;
+    for (const auto& entry : valueMap) {
+        if (entry.second != 0) {
+            sortedElements.push_back({entry.first.first, entry.first.second, entry.second});
         }
     }
 
-    while (i <= A.element[0].val)
-        result.element[idx++] = A.element[i++];
-    while (j <= B.element[0].val)
-        result.element[idx++] = B.element[j++];
+    std::sort(sortedElements.begin(), sortedElements.end(), compareSparseElement);
 
-    result.element[0].val = idx - 1;
+    CSparseMatrix result(static_cast<int>(sortedElements.size()) + 1);
+    result.element[0] = {A.element[0].row, A.element[0].col, static_cast<int>(sortedElements.size())};
+
+    for (int i = 0; i < sortedElements.size(); ++i) {
+        result.element[i + 1] = sortedElements[i];
+    }
+
     return result;
 }
 
-//A와 B의 행렬을 곱셈
-CSparseMatrix CSparseMatrix::multMatrix(const CSparseMatrix& A, const CSparseMatrix& B) {
-    CSparseMatrix BT = transposeMatrix(B); // A의 행 곱하기 B의 열을 해야하기 때문에 B를 전치시켜서 B의 열을 행처럼 만듦
-    CSparseMatrix result(A.element[0].val * BT.element[0].val + 1);
-    result.element[0] = {A.element[0].row, B.element[0].col, 0}; // element[0]에 항 * 열 * 항 수 저장
+// 희소행렬의 뺄셈
+CSparseMatrix CSparseMatrix::subtractMatrix(const CSparseMatrix& A, const CSparseMatrix& B) {
+    std::map<std::pair<int, int>, int> valueMap;
 
-    int idx = 1; //A의 각행과 BT(B의 열)행을 곱셈
+    for (int i = 1; i <= A.element[0].val; ++i) {
+        auto key = std::make_pair(A.element[i].row, A.element[i].col);
+        valueMap[key] += A.element[i].val;
+    }
+    for (int i = 1; i <= B.element[0].val; ++i) {
+        auto key = std::make_pair(B.element[i].row, B.element[i].col);
+        valueMap[key] -= B.element[i].val;
+    }
+
+    std::vector<SparseElement> sortedElements;
+    for (const auto& entry : valueMap) {
+        if (entry.second != 0) {
+            sortedElements.push_back({entry.first.first, entry.first.second, entry.second});
+        }
+    }
+
+    std::sort(sortedElements.begin(), sortedElements.end(), compareSparseElement);
+
+    CSparseMatrix result(static_cast<int>(sortedElements.size()) + 1);
+    result.element[0] = {A.element[0].row, A.element[0].col, static_cast<int>(sortedElements.size())};
+
+    for (size_t i = 0; i < sortedElements.size(); ++i) {
+        result.element[i + 1] = sortedElements[i];
+    }
+
+    return result;
+}
+
+//희소행렬의 곱셈
+CSparseMatrix CSparseMatrix::multMatrix(const CSparseMatrix& A, const CSparseMatrix& B) {
+    CSparseMatrix BT = transposeMatrix(B);
+    std::map<std::pair<int, int>, int> resultMap;
+
     for (int i = 1; i <= A.element[0].val;) {
-        int row = A.element[i].row;
+        int rowA = A.element[i].row;
         int aStart = i;
-        while (i <= A.element[0].val && A.element[i].row == row) ++i;
+        while (i <= A.element[0].val && A.element[i].row == rowA) ++i;
         int aEnd = i;
 
         for (int j = 1; j <= BT.element[0].val;) {
-            int col = BT.element[j].row;
+            int colB = BT.element[j].row;
             int bStart = j;
-            while (j <= BT.element[0].val && BT.element[j].row == col) ++j;
+            while (j <= BT.element[0].val && BT.element[j].row == colB) ++j;
             int bEnd = j;
 
-            // 두 행의 일치하는 열끼리 곱하고 누적합 계산
-            int sum = 0;
-            int x = aStart, y = bStart;
+            int x = aStart, y = bStart, sum = 0;
             while (x < aEnd && y < bEnd) {
                 if (A.element[x].col == BT.element[y].col) {
                     sum += A.element[x].val * BT.element[y].val;
                     ++x; ++y;
-                } else if (A.element[x].col < BT.element[y].col) ++x;
-                else ++y;
+                } else if (A.element[x].col < BT.element[y].col) {
+                    ++x;
+                } else {
+                    ++y;
+                }
             }
 
-            // 0이 아닌 항만 희소행렬에 저장
             if (sum != 0)
-                result.element[idx++] = {row, col, sum};
+                resultMap[{rowA, colB}] += sum;
         }
     }
 
-    result.element[0].val = idx - 1;
+    std::vector<SparseElement> sortedElements;
+    for (const auto& kv : resultMap) {
+        sortedElements.push_back({kv.first.first, kv.first.second, kv.second});
+    }
+
+    std::sort(sortedElements.begin(), sortedElements.end(), compareSparseElement);
+
+    CSparseMatrix result(static_cast<int>(sortedElements.size()) + 1);
+    result.element[0] = {A.element[0].row, B.element[0].col, static_cast<int>(sortedElements.size())};
+
+    for (int i = 0; i < sortedElements.size(); ++i) {
+        result.element[i + 1] = sortedElements[i];
+    }
+
     return result;
 }
+
+// 희소행렬의 element-wise 나눗셈
+CSparseMatrix CSparseMatrix::divideMatrix(const CSparseMatrix& A, const CSparseMatrix& B) {
+    std::map<std::pair<int, int>, double> valueMap;
+
+    for (int i = 1; i <= A.element[0].val; ++i) {
+        auto key = std::make_pair(A.element[i].row, A.element[i].col);
+        valueMap[key] = static_cast<double>(A.element[i].val);
+    }
+
+    for (int i = 1; i <= B.element[0].val; ++i) {
+        auto key = std::make_pair(B.element[i].row, B.element[i].col);
+        if (valueMap.find(key) != valueMap.end()) {
+            if (B.element[i].val != 0) {
+                valueMap[key] = std::floor((valueMap[key] / B.element[i].val) * 100) / 100; // 버림
+            } else {
+                valueMap[key] = NAN;
+            }
+        }
+    }
+
+    std::vector<SparseElement> sortedElements;
+    for (const auto& entry : valueMap) {
+        if (!std::isnan(entry.second)) {
+            sortedElements.push_back({entry.first.first, entry.first.second, static_cast<int>(entry.second)});
+        }
+    }
+
+    std::sort(sortedElements.begin(), sortedElements.end(), compareSparseElement);
+
+    CSparseMatrix result(static_cast<int>(sortedElements.size()) + 1);
+    result.element[0] = {A.element[0].row, A.element[0].col, static_cast<int>(sortedElements.size())};
+
+    for (size_t i = 0; i < sortedElements.size(); ++i) {
+        result.element[i + 1] = sortedElements[i];
+    }
+
+    return result;
+}
+
+
